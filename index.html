@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Clock">
+    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Clock_App_Icon_iOS_7.png/600px-Clock_App_Icon_iOS_7.png">
+    <title>Clock</title>
+    <style>
+        :root {
+            --ios-black: #000000;
+            --ios-grey: #1C1C1E;
+            --ios-light-grey: #2C2C2E;
+            --ios-orange: #FF9F0A;
+            --ios-green: #30D158;
+            --ios-red: #FF453A;
+            --ios-text-grey: #8E8E93;
+            --ios-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--ios-black);
+            color: white;
+            font-family: var(--ios-font);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Views --- */
+        .view {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            padding-bottom: 83px; /* Tab bar height */
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        /* --- Stopwatch UI --- */
+        .stopwatch-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .time-display {
+            font-size: 88px;
+            font-weight: 200;
+            font-variant-numeric: tabular-nums;
+            margin-top: -40px;
+            display: flex;
+            align-items: baseline;
+        }
+
+        .time-display span.ms {
+            width: 100px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 16px;
+            margin-top: 80px;
+        }
+
+        .btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            border: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .btn::after {
+            content: "";
+            position: absolute;
+            width: 74px;
+            height: 74px;
+            border: 2px solid var(--ios-black);
+            border-radius: 50%;
+        }
+
+        .btn-lap { background-color: var(--ios-light-grey); color: white; }
+        .btn-start { background-color: #0A2A12; color: var(--ios-green); }
+        .btn-stop { background-color: #320E0B; color: var(--ios-red); }
+
+        /* --- Tab Bar --- */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 83px;
+            background-color: #161616;
+            border-top: 0.5px solid #333;
+            display: flex;
+            justify-content: space-around;
+            padding-top: 6px;
+            padding-bottom: 20px;
+            z-index: 100;
+        }
+
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--ios-text-grey);
+            font-size: 10px;
+            text-decoration: none;
+            width: 25%;
+        }
+
+        .tab-item svg {
+            width: 26px;
+            height: 26px;
+            margin-bottom: 4px;
+            fill: currentColor;
+        }
+
+        .tab-item.active {
+            color: var(--ios-orange);
+        }
+
+        /* --- Hidden Menu --- */
+        #secret-menu {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #252525;
+            padding: 20px;
+            border-radius: 14px;
+            z-index: 1000;
+            width: 270px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        #secret-menu h2 { font-size: 17px; margin: 0 0 15px 0; text-align: center; }
+        #secret-menu input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background: #1c1c1e;
+            border: 1px solid #3a3a3c;
+            color: white;
+            border-radius: 5px;
+        }
+
+        .menu-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .save-btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--ios-orange);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        /* --- Empty Views --- */
+        .placeholder {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ios-text-grey);
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="view-world" class="view">
+        <div class="placeholder">No World Clocks</div>
+    </div>
+
+    <div id="view-alarm" class="view">
+        <div class="placeholder">No Alarms</div>
+    </div>
+
+    <div id="view-stopwatch" class="view active">
+        <div class="stopwatch-container">
+            <div class="time-display" id="display-trigger">
+                <span id="display-min">00</span>:<span id="display-sec">00</span>.<span id="display-ms" class="ms">00</span>
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-lap" id="lap-btn">Lap</button>
+                <button class="btn btn-start" id="start-btn">Start</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-timer" class="view">
+        <div class="placeholder">Timer Not Set</div>
+    </div>
+
+    <nav class="tab-bar">
+        <div class="tab-item" onclick="switchTab('world')" id="tab-world">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+            World Clock
+        </div>
+        <div class="tab-item" onclick="switchTab('alarm')">
+            <svg viewBox="0 0 24 24"><path d="M12 22c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9zm0-16c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.14-7-7 3.14-7 7-7zm-.5 10h1v-5h3v-1h-4v6zM7.38 4.69c-.39-.39-1.01-.39-1.4 0L3.47 7.2c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0L7.38 6.1c.39-.39.39-1.02 0-1.41zM19.12 8.6c.39.39 1.02.39 1.41 0l2.51-2.51c.39-.39.39-1.02 0-1.41-.39-.39-1.01-.39-1.4 0L19.12 7.2c-.39.39-.39 1.02 0 1.4z"/></svg>
+            Alarm
+        </div>
+        <div class="tab-item active" onclick="switchTab('stopwatch')">
+            <svg viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+            Stopwatch
+        </div>
+        <div class="tab-item" onclick="switchTab('timer')">
+            <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            Timer
+        </div>
+    </nav>
+
+    <div id="secret-menu">
+        <h2>System Config</h2>
+        <label>Force Number (SSMS)</label>
+        <input type="number" id="cfg-force" placeholder="e.g. 50">
+        <label>Current Attempt</label>
+        <input type="number" id="cfg-attempts" value="1">
+        <div class="menu-row">
+            <span>Force Enabled</span>
+            <input type="checkbox" id="cfg-active" style="width: 20px;">
+        </div>
+        <button class="save-btn" onclick="saveConfig()">Save</button>
+    </div>
+
+    <script>
+        // --- State ---
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let isRunning = false;
+        let currentAttempt = 1;
+
+        // --- Config ---
+        let config = {
+            forceNum: 50,
+            targetAttempt: 1,
+            active: false
+        };
+
+        // Load Persisted Data
+        if(localStorage.getItem('clock_cfg')) {
+            config = JSON.parse(localStorage.getItem('clock_cfg'));
+        }
+
+        const startBtn = document.getElementById('start-btn');
+        const lapBtn = document.getElementById('lap-btn');
+        const minDisp = document.getElementById('display-min');
+        const secDisp = document.getElementById('display-sec');
+        const msDisp = document.getElementById('display-ms');
+
+        // --- Core Stopwatch Logic ---
+        function updateDisplay(time) {
+            let m = Math.floor(time / 60000);
+            let s = Math.floor((time % 60000) / 1000);
+            let ms = Math.floor((time % 1000) / 10);
+            
+            minDisp.textContent = m.toString().padStart(2, '0');
+            secDisp.textContent = s.toString().padStart(2, '0');
+            msDisp.textContent = ms.toString().padStart(2, '0');
+        }
+
+        function startTimer() {
+            startTime = Date.now() - elapsedTime;
+            timerInterval = setInterval(() => {
+                elapsedTime = Date.now() - startTime;
+                updateDisplay(elapsedTime);
+            }, 10);
+            
+            isRunning = true;
+            startBtn.textContent = 'Stop';
+            startBtn.className = 'btn btn-stop';
+            lapBtn.textContent = 'Lap';
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            
+            // Apply Mentalism Force
+            if (config.active && currentAttempt >= config.targetAttempt) {
+                forceResult();
+            } else if (config.active) {
+                currentAttempt++;
+            }
+
+            isRunning = false;
+            startBtn.textContent = 'Start';
+            startBtn.className = 'btn btn-start';
+            lapBtn.textContent = 'Reset';
+        }
+
+        function forceResult() {
+            // Force Number is SSMS (e.g., 50 means 00:50)
+            const target = config.forceNum;
+            const m = Math.floor(elapsedTime / 60000);
+            
+            // Visually update to forced time
+            minDisp.textContent = m.toString().padStart(2, '0');
+            
+            // Split the force number into SS and MS
+            let forceSS = Math.floor(target / 100);
+            let forceMS = target % 100;
+            
+            // If target is simple (like 50), it means 0 seconds 50 ms
+            if (target < 100) {
+                forceSS = 0;
+                forceMS = target;
+            }
+
+            secDisp.textContent = forceSS.toString().padStart(2, '0');
+            msDisp.textContent = forceMS.toString().padStart(2, '0');
+
+            // Auto-increment force for next phase
+            config.forceNum += 5;
+            currentAttempt = 1;
+            saveConfig(true);
+        }
+
+        function resetTimer() {
+            elapsedTime = 0;
+            updateDisplay(0);
+            lapBtn.textContent = 'Lap';
+        }
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', () => {
+            if (!isRunning) startTimer();
+            else stopTimer();
+        });
+
+        lapBtn.addEventListener('click', () => {
+            if (!isRunning && lapBtn.textContent === 'Reset') {
+                resetTimer();
+            }
+        });
+
+        // --- Hidden Features ---
+        let lastTap = 0;
+        document.getElementById('display-trigger').addEventListener('touchstart', (e) => {
+            const now = Date.now();
+            if (now - lastTap < 300) {
+                document.getElementById('secret-menu').style.display = 'block';
+                document.getElementById('cfg-force').value = config.forceNum;
+                document.getElementById('cfg-attempts').value = config.targetAttempt;
+                document.getElementById('cfg-active').checked = config.active;
+            }
+            lastTap = now;
+        });
+
+        function saveConfig(silent = false) {
+            if (!silent) {
+                config.forceNum = parseInt(document.getElementById('cfg-force').value);
+                config.targetAttempt = parseInt(document.getElementById('cfg-attempts').value);
+                config.active = document.getElementById('cfg-active').checked;
+                currentAttempt = 1;
+            }
+            localStorage.setItem('clock_cfg', JSON.stringify(config));
+            document.getElementById('secret-menu').style.display = 'none';
+        }
+
+        // Panic Reset
+        let panicTaps = 0;
+        document.getElementById('tab-world').addEventListener('touchstart', () => {
+            panicTaps++;
+            if (panicTaps >= 3) {
+                config.active = false;
+                saveConfig(true);
+                alert("Safe Mode");
+                panicTaps = 0;
+            }
+            setTimeout(() => panicTaps = 0, 1000);
+        });
+
+        // Tab Switching Logic
+        function switchTab(target) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById('view-' + target).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // Prevent Pull-to-refresh
+        document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    </script>
+</body>
+</html>
