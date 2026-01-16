@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Clock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Clock">
+
+<!-- iOS Clock-style icon (SVG base64) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIHJ4PSIzNiIgZmlsbD0iI2ZmZiIvPjxjaXJjbGUgY3g9IjkwIiBjeT0iOTAiIHI9IjcwIiBmaWxsPSIjMDAwIi8+PGxpbmUgeDE9IjkwIiB5MT0iOTAiIHgyPSI5MCIgeTI9IjQ1IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iOCIvPjxsaW5lIHgxPSI5MCIgeTE9IjkwIiB4Mj0iMTI1IiB5Mj0iOTAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI2Ii8+PC9zdmc+">
+
+<style>
+* { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+body {
+  margin: 0;
+  background: #000;
+  color: #fff;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.screen {
+  flex: 1;
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+.screen.active { display: flex; }
+
+#time {
+  font-size: 64px;
+  letter-spacing: 2px;
+}
+.controls {
+  position: absolute;
+  bottom: 120px;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+}
+button {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: none;
+  font-size: 16px;
+}
+.start { background: #1db954; color: #000; }
+.stop { background: #ff453a; }
+.reset { background: #333; }
+
+.nav {
+  height: 90px;
+  background: #111;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+.nav div {
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+}
+.nav .active { color: #ff9f0a; }
+
+.popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #1c1c1e;
+  padding: 20px;
+  border-radius: 12px;
+  display: none;
+}
+.popup input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="stopwatch" class="screen active">
+  <div id="time">
+    <span id="mm">00</span>:<span id="ss">00</span>:<span id="ms">00</span>
+  </div>
+
+  <div class="controls">
+    <button class="reset" onclick="reset()">Reset</button>
+    <button id="startStop" class="start" onclick="toggle()">Start</button>
+  </div>
+</div>
+
+<div class="screen">World Clock</div>
+<div class="screen">Alarm</div>
+<div class="screen">Timer</div>
+
+<div class="nav">
+  <div onclick="nav(1)">🌍<br>World</div>
+  <div onclick="nav(2)">⏰<br>Alarm</div>
+  <div class="active" onclick="nav(0)">⏱<br>Stopwatch</div>
+  <div onclick="nav(3)">⏳<br>Timer</div>
+</div>
+
+<div class="popup" id="popup">
+  <input id="force" placeholder="Force number">
+  <input id="attempts" placeholder="Attempts">
+  <button onclick="save()">Save</button>
+</div>
+
+<script>
+let running=false, t=0, interval;
+let force = +localStorage.force || 0;
+let attempts = +localStorage.attempts || 1;
+let forceOn = localStorage.forceOn !== "false";
+
+function render(){
+  let mm=Math.floor(t/6000);
+  let ss=Math.floor(t/100)%60;
+  let ms=t%100;
+  mmEl.textContent=String(mm).padStart(2,"0");
+  ssEl.textContent=String(ss).padStart(2,"0");
+  msEl.textContent=String(ms).padStart(2,"0");
+}
+const mmEl=mm, ssEl=ss, msEl=ms;
+
+function toggle(){
+  if(!running){
+    running=true;
+    startStop.textContent="Stop";
+    startStop.className="stop";
+    interval=setInterval(()=>{t++;render();},10);
+  } else {
+    clearInterval(interval);
+    running=false;
+    startStop.textContent="Start";
+    startStop.className="start";
+    attempts++;
+    if(forceOn){
+      let ssV=Math.floor(t/100)%60;
+      let msV=t%100;
+      if(ssV+msV!==force){
+        let target = Math.floor(t/100)*100 + force - ssV;
+        t=target;
+      } else {
+        force+=5;
+        attempts=1;
+      }
+    }
+    localStorage.force=force;
+    localStorage.attempts=attempts;
+    render();
+  }
+}
+
+function reset(){ t=0; render(); }
+
+let tap=0;
+mmEl.onclick=()=>{ tap++; setTimeout(()=>tap=0,400); if(tap==2 && !running){ popup.style.display="block"; forceInput.value=force; attemptsInput.value=attempts; }};
+
+function save(){
+  force=+forceInput.value;
+  attempts=+attemptsInput.value;
+  localStorage.force=force;
+  localStorage.attempts=attempts;
+  popup.style.display="none";
+}
+
+let panic=0;
+document.querySelector(".nav div").onclick=()=>{
+  panic++; setTimeout(()=>panic=0,600);
+  if(panic===3){
+    forceOn=false;
+    localStorage.forceOn=false;
+    force=0; attempts=1;
+  }
+};
+
+function nav(i){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".nav div").forEach(n=>n.classList.remove("active"));
+  document.querySelectorAll(".screen")[i].classList.add("active");
+  document.querySelectorAll(".nav div")[i].classList.add("active");
+}
+</script>
+
+</body>
+</html>
